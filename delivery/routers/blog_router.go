@@ -2,26 +2,16 @@ package routers
 
 import (
 	"github.com/Abenuterefe/a2sv-project/delivery/controllers"
-	"github.com/Abenuterefe/a2sv-project/infrastructure/database"
 	"github.com/Abenuterefe/a2sv-project/repository"
 	"github.com/Abenuterefe/a2sv-project/usecase"
-	"log"
-
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
-// SetupRoutes initializes the dependencies and sets up the routes.
-func BlogRoutes() *gin.Engine {
-	r := gin.Default()
-
-	// Connect to MongoDB
-	client, err := database.ConnectMongoDB()
-	if err != nil {
-		log.Fatalf("Failed to connect to MongoDB: %v", err)
-	}
-
+// BlogRoutes initializes the blog-related routes.
+func BlogRoutes(r *gin.Engine, client *mongo.Client) {
 	// Get the blog collection
-	blogCollection := client.Database("blogdb").Collection("blogs")
+	blogCollection := client.Database("g6_starter_projectDb").Collection("blogs")
 
 	// initialization of repo, usecase, and handler
 	blogRepo := repository.NewBlogRepositoryMongo(blogCollection)
@@ -37,6 +27,4 @@ func BlogRoutes() *gin.Engine {
 	api.GET("/blogs/:id", blogHandler.GetBlogByID)
 	api.PUT("/blogs/:id", blogHandler.UpdateBlog)
 	api.DELETE("/blogs/:id", blogHandler.DeleteBlog)
-
-	return r
 }
