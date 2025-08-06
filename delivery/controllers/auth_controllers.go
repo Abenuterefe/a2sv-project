@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strings"
+
 	"time"
 
 	"github.com/Abenuterefe/a2sv-project/domain/entities"
@@ -49,7 +50,9 @@ func (ac *AuthController) Regiser(c *gin.Context) {
 	}
 
 	if err := ac.UserUsecase.Regiser(c.Request.Context(), user); err != nil {
+
 		c.JSON(http.StatusBadRequest, gin.H{"error1 malli maali": err.Error()})
+
 		return
 	}
 
@@ -114,6 +117,7 @@ func (ac *AuthController) Refresh(c *gin.Context) {
 	token, err := ac.UserUsecase.RefreshToken(ctx, refreshToken)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error2": err.Error()})
+
 		return
 	}
 
@@ -141,6 +145,7 @@ func (a *AuthController) AdminDashboard(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Welcome to the Admin Dashboard",
 	})
+  
 }
 
 // Verify email handler
@@ -178,4 +183,5 @@ func (a *AuthController) ResendVerification(c *gin.Context){
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Verification email resent"})
+
 }
