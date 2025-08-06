@@ -14,7 +14,7 @@ func main() {
 	err := godotenv.Load()
 
 	if err != nil {
-		log.Println("⚠️ .env file is not find")
+		log.Println(".env file is not find")
 	}
 
 	// =========================================  //
@@ -27,6 +27,7 @@ func main() {
 	// CALL AND CREATE ROUTER
 	r := gin.Default()
 	routers.UserRoutes(r, mongoClient)
+	routers.AiRoutes(r)
 
 	// RUN SERVER
 	port := os.Getenv("PORT")
