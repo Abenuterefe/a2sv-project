@@ -5,6 +5,7 @@ import (
 
 	"github.com/Abenuterefe/a2sv-project/domain/entities"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -71,14 +72,38 @@ func (r *userRepository) FindByVerificationToken(ctx context.Context, token stri
 }
 
 // Update users verified status and verification token
-func (r *userRepository) Update(ctx context.Context,user *entities.User) error{
+func (r *userRepository) Update(ctx context.Context, user *entities.User) error {
 	filter := bson.M{"_id": user.ID}
 	update := bson.M{"$set": bson.M{
-		"verified": user.Verified,
+		"verified":           user.Verified,
 		"verification_token": user.VerificationToken,
+		"role":               user.Role,
 	}}
 
-	_,err := r.collection.UpdateOne(ctx,filter,update)
+	_, err := r.collection.UpdateOne(ctx, filter, update)
 
+	return err
+}
+
+// Find user by their id repo func
+func (r *userRepository) FindByID(ctx context.Context, id primitive.ObjectID) (*entities.User, error) {
+	var user entities.User
+
+	filter := bson.M{"_id": id}
+	err := r.collection.FindOne(ctx, filter).Decode(&user)
+	if err != nil {
+		if err == mongo.ErrNilDocument {
+			return nil, nil // if no user found
+		}
+		return nil, err //other db error
+	}
+
+	return &user, nil
+}
+
+// Deleting refresh token from cache or database
+func (r *userRepository) DeleteTokenByUserID(ctx context.Context, userID string) error {
+	filter := bson.M{"user_id": userID}
+	_, err := r.db.Collection("tokens").DeleteOne(ctx, filter)
 	return err
 }

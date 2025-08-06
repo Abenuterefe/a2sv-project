@@ -8,15 +8,15 @@ import (
 
 	"github.com/Abenuterefe/a2sv-project/domain/entities"
 	"github.com/Abenuterefe/a2sv-project/domain/interfaces"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"github.com/google/uuid"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type userUsecase struct {
 	userRepo       interfaces.UserRepository
 	passwordHasher interfaces.PasswordService
 	authService    interfaces.AuthService
-	mailService interfaces.MailService
+	mailService    interfaces.MailService
 }
 
 var AccessTokenTTL = time.Minute * 15
@@ -30,7 +30,7 @@ func NewUserUsecase(
 		userRepo:       userRepo,
 		passwordHasher: hasher,
 		authService:    auth,
-		mailService: mailService,
+		mailService:    mailService,
 	}
 }
 
@@ -63,12 +63,12 @@ func (u *userUsecase) Regiser(ctx context.Context, user *entities.User) error {
 
 	// save to database
 	err = u.userRepo.Create(ctx, user)
-	if err != nil{
+	if err != nil {
 		return err
 	}
 
 	// Send verification email to confirm email
-	return u.mailService.SendVerificationEmail(user.Email, user.VerificationToken)	
+	return u.mailService.SendVerificationEmail(user.Email, user.VerificationToken)
 }
 
 func (u *userUsecase) Login(ctx context.Context, email, password string) (*entities.Token, error) {
@@ -79,9 +79,9 @@ func (u *userUsecase) Login(ctx context.Context, email, password string) (*entit
 	if err != nil || user == nil {
 		return nil, errors.New("invalid credentials")
 	}
-	
-	// Restrict unverified users from logging in 
-	if !user.Verified{
+
+	// Restrict unverified users from logging in
+	if !user.Verified {
 		return nil, errors.New("please verify your email befor login")
 	}
 
@@ -148,36 +148,79 @@ func (u *userUsecase) RefreshToken(ctx context.Context, refreshToken string) (*e
 
 // Implement verify email function
 func (u *userUsecase) VerifyEmail(ctx context.Context, token string) error {
-	user, err := u.userRepo.FindByVerificationToken(ctx,token)
-	if err != nil || user == nil{
+	user, err := u.userRepo.FindByVerificationToken(ctx, token)
+	if err != nil || user == nil {
 		return errors.New("invalid verification token")
 	}
 
 	// if we can find user registered with token verification token, change status and verToken
 	user.Verified = true
-	user.VerificationToken="" //clear roken
+	user.VerificationToken = "" //clear roken
 
-	return u.userRepo.Update(ctx,user)
+	return u.userRepo.Update(ctx, user)
 }
 
 // Implement resending verification email funcion
-func (u *userUsecase) ResendVerificationEmail(ctx context.Context,email string) error {
+func (u *userUsecase) ResendVerificationEmail(ctx context.Context, email string) error {
 	user, err := u.userRepo.FindByEmail(ctx, email)
 	if err != nil {
 		return errors.New("user not found")
 	}
 
-	if user.Verified{
+	if user.Verified {
 		return errors.New("user already verified")
 	}
 
 	// Generate new verification token
 	user.VerificationToken = uuid.New().String()
-	err = u.userRepo.Update(ctx,user)
+	err = u.userRepo.Update(ctx, user)
 	if err != nil {
 		return errors.New("failed to update verification token")
 	}
 
 	// send email again
 	return u.mailService.SendVerificationEmail(user.Email, user.VerificationToken)
+}
+
+// Promote user func
+func (u *userUsecase) PromoteUser(ctx context.Context, userID string) error {
+	objID, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		return errors.New("invalid user ID")
+	}
+
+	user, err := u.userRepo.FindByID(ctx, objID)
+	if err != nil || user == nil {
+		return errors.New("user not found")
+	}
+
+	// promote user
+	user.Role = entities.RoleAdmin
+	user.UpdatedAt = time.Now()
+
+	return u.userRepo.Update(ctx, user)
+}
+
+// demote user func usecase
+func (u *userUsecase) DemoteUser(ctx context.Context, userID string) error {
+	objID, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		return errors.New("invalide user ID")
+	}
+
+	user, err := u.userRepo.FindByID(ctx, objID)
+	if err != nil || user == nil {
+		return errors.New("user not found")
+	}
+
+	// demote user
+	user.Role = entities.RoleUser
+	user.UpdatedAt = time.Now()
+
+	return u.userRepo.Update(ctx, user)
+}
+
+// logout user
+func (u *userUsecase) Logout(ctx context.Context, userID string) error {
+	return u.userRepo.DeleteToken(ctx, userID)
 }
