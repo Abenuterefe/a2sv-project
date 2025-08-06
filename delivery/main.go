@@ -27,6 +27,7 @@ func main() {
 	// CALL AND CREATE ROUTER
 	r := gin.Default()
 	routers.BlogRoutes(r, mongoClient)
+	routers.UserRoutes(r, mongoClient)
 
 	// RUN SERVER
 	port := os.Getenv("PORT")
