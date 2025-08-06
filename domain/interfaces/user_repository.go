@@ -15,4 +15,8 @@ type UserRepository interface {
 	StoreToken(ctx context.Context, token *entities.Token) error
 	FindToken(ctx context.Context, refreshToken string) (*entities.Token, error)
 	DeleteToken(ctx context.Context, refreshToken string) error
+
+	// emial verification funcs
+	FindByVerificationToken(ctx context.Context, token string) (*entities.User, error)
+	Update(ctx context.Context, user *entities.User) error
 }

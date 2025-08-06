@@ -9,12 +9,14 @@ import (
 	"github.com/Abenuterefe/a2sv-project/domain/entities"
 	"github.com/Abenuterefe/a2sv-project/domain/interfaces"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/google/uuid"
 )
 
 type userUsecase struct {
 	userRepo       interfaces.UserRepository
 	passwordHasher interfaces.PasswordService
 	authService    interfaces.AuthService
+	mailService interfaces.MailService
 }
 
 var AccessTokenTTL = time.Minute * 15
@@ -22,11 +24,13 @@ var AccessTokenTTL = time.Minute * 15
 func NewUserUsecase(
 	userRepo interfaces.UserRepository,
 	hasher interfaces.PasswordService,
-	auth interfaces.AuthService) interfaces.UserUsecase {
+	auth interfaces.AuthService,
+	mailService interfaces.MailService) interfaces.UserUsecase {
 	return &userUsecase{
 		userRepo:       userRepo,
 		passwordHasher: hasher,
 		authService:    auth,
+		mailService: mailService,
 	}
 }
 
@@ -51,13 +55,20 @@ func (u *userUsecase) Regiser(ctx context.Context, user *entities.User) error {
 
 	// Fill other fields of user
 	user.ID = primitive.NewObjectID()
-	user.Role = entities.RoleAdmin //by default role is user role
+	user.Role = entities.RoleUser //by default role is user role
 	user.Verified = false
+	user.VerificationToken = uuid.New().String()
 	user.CreatedAt = time.Now()
 	user.UpdatedAt = time.Now()
 
 	// save to database
-	return u.userRepo.Create(ctx, user)
+	err = u.userRepo.Create(ctx, user)
+	if err != nil{
+		return err
+	}
+
+	// Send verification email to confirm email
+	return u.mailService.SendVerificationEmail(user.Email, user.VerificationToken)	
 }
 
 func (u *userUsecase) Login(ctx context.Context, email, password string) (*entities.Token, error) {
@@ -67,6 +78,11 @@ func (u *userUsecase) Login(ctx context.Context, email, password string) (*entit
 	user, err := u.userRepo.FindByEmail(ctx, email)
 	if err != nil || user == nil {
 		return nil, errors.New("invalid credentials")
+	}
+	
+	// Restrict unverified users from logging in 
+	if !user.Verified{
+		return nil, errors.New("please verify your email befor login")
 	}
 
 	// verify pwd
@@ -128,4 +144,40 @@ func (u *userUsecase) RefreshToken(ctx context.Context, refreshToken string) (*e
 		ExpiresAt:    time.Now().Add(AccessTokenTTL),
 		UserID:       storedToken.UserID,
 	}, nil
+}
+
+// Implement verify email function
+func (u *userUsecase) VerifyEmail(ctx context.Context, token string) error {
+	user, err := u.userRepo.FindByVerificationToken(ctx,token)
+	if err != nil || user == nil{
+		return errors.New("invalid verification token")
+	}
+
+	// if we can find user registered with token verification token, change status and verToken
+	user.Verified = true
+	user.VerificationToken="" //clear roken
+
+	return u.userRepo.Update(ctx,user)
+}
+
+// Implement resending verification email funcion
+func (u *userUsecase) ResendVerificationEmail(ctx context.Context,email string) error {
+	user, err := u.userRepo.FindByEmail(ctx, email)
+	if err != nil {
+		return errors.New("user not found")
+	}
+
+	if user.Verified{
+		return errors.New("user already verified")
+	}
+
+	// Generate new verification token
+	user.VerificationToken = uuid.New().String()
+	err = u.userRepo.Update(ctx,user)
+	if err != nil {
+		return errors.New("failed to update verification token")
+	}
+
+	// send email again
+	return u.mailService.SendVerificationEmail(user.Email, user.VerificationToken)
 }
