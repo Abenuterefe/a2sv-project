@@ -1,11 +1,11 @@
 package usecase
 
 import (
-	"github.com/Abenuterefe/a2sv-project/domain/interfaces"
 	"context"
 	"time"
 
 	"github.com/Abenuterefe/a2sv-project/domain/entities"
+	"github.com/Abenuterefe/a2sv-project/domain/interfaces"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
