@@ -1,20 +1,30 @@
 package routers
 
 import (
-	"a2sv-project/Delivery/controllers"
-	"a2sv-project/Infrastructure/database"
-	repository "a2sv-project/Repository"
-	usecase "a2sv-project/Usecase"
+	"github.com/Abenuterefe/a2sv-project/delivery/controllers"
+	"github.com/Abenuterefe/a2sv-project/infrastructure/database"
+	"github.com/Abenuterefe/a2sv-project/repository"
+	"github.com/Abenuterefe/a2sv-project/usecase"
+	"log"
 
 	"github.com/gin-gonic/gin"
 )
 
 // SetupRoutes initializes the dependencies and sets up the routes.
-func SetupRoutes() *gin.Engine {
+func BlogRoutes() *gin.Engine {
 	r := gin.Default()
 
+	// Connect to MongoDB
+	client, err := database.ConnectMongoDB()
+	if err != nil {
+		log.Fatalf("Failed to connect to MongoDB: %v", err)
+	}
+
+	// Get the blog collection
+	blogCollection := client.Database("blogdb").Collection("blogs")
+
 	// initialization of repo, usecase, and handler
-	blogRepo := repository.NewBlogRepositoryMongo(database.GetCollection("blogs"))
+	blogRepo := repository.NewBlogRepositoryMongo(blogCollection)
 	blogUseCase := usecase.NewBlogUseCase(blogRepo)
 	blogHandler := controllers.NewBlogHandler(blogUseCase)
 

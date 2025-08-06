@@ -1,8 +1,8 @@
 package repository
 
 import (
-	"a2sv-project/Domain/entities"
-	"a2sv-project/Domain/interfaces"
+	"github.com/Abenuterefe/a2sv-project/domain/entities"
+	"github.com/Abenuterefe/a2sv-project/domain/interfaces"
 	"context"
 
 	"go.mongodb.org/mongo-driver/bson"

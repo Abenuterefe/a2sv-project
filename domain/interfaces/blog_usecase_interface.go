@@ -2,7 +2,7 @@
 package interfaces
 
 import (
-	"a2sv-project/Domain/entities"
+	"github.com/Abenuterefe/a2sv-project/domain/entities"
 	"context"
 )
 
