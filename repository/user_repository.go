@@ -9,14 +9,14 @@ import (
 )
 
 type userRepository struct {
-	db *mongo.Database
+	db         *mongo.Database
 	collection *mongo.Collection
 }
 
 func NewUserRepository(db *mongo.Database) *userRepository {
 	return &userRepository{
 		collection: db.Collection("user"),
-		db: db,
+		db:         db,
 	}
 }
 
@@ -50,7 +50,7 @@ func (r *userRepository) FindToken(ctx context.Context, refreshToken string) (*e
 		return nil, err
 	}
 
-	return  &token, nil
+	return &token, nil
 }
 
 // Delete token (expired token) from database
@@ -59,3 +59,26 @@ func (r *userRepository) DeleteToken(ctx context.Context, refreshToken string) e
 	return err
 }
 
+// Find user by email verification token
+func (r *userRepository) FindByVerificationToken(ctx context.Context, token string) (*entities.User, error) {
+	var user entities.User
+	err := r.collection.FindOne(ctx, bson.M{"verification_token": token}).Decode(&user)
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+// Update users verified status and verification token
+func (r *userRepository) Update(ctx context.Context,user *entities.User) error{
+	filter := bson.M{"_id": user.ID}
+	update := bson.M{"$set": bson.M{
+		"verified": user.Verified,
+		"verification_token": user.VerificationToken,
+	}}
+
+	_,err := r.collection.UpdateOne(ctx,filter,update)
+
+	return err
+}

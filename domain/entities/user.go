@@ -1,4 +1,5 @@
 package entities
+
 import (
 	"time"
 
@@ -13,13 +14,13 @@ const (
 )
 
 type User struct {
-	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
-	Username  string             `bson:"username" json:"username"`
-	Email     string             `bson:"email" json:"email"`
-	Password  string             `bson:"password,omitempty" json:"-"` // hide in responses
-	Role      Role               `bson:"role" json:"role"`
-	Verified  bool               `bson:"verified" json:"verified"`
-	CreatedAt time.Time          `bson:"created_at" json:"created_at"`
-	UpdatedAt time.Time          `bson:"updated_at" json:"updated_at"`
+	ID                primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	Username          string             `bson:"username" json:"username"`
+	Email             string             `bson:"email" json:"email"`
+	Password          string             `bson:"password,omitempty" json:"-"` // hide in responses
+	Role              Role               `bson:"role" json:"role"`
+	Verified          bool               `bson:"verified" json:"verified"`
+	VerificationToken string             `bson:"verification_token" json:"-"`
+	CreatedAt         time.Time          `bson:"created_at" json:"created_at"`
+	UpdatedAt         time.Time          `bson:"updated_at" json:"updated_at"`
 }
-
