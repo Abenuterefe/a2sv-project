@@ -11,5 +11,8 @@ type UserUsecase interface {
 	Login(ctx context.Context, email, password string) (*entities.Token, error)
 	RefreshToken(ctx context.Context, refreshToken string) (*entities.Token, error)
 	VerifyEmail(ctx context.Context, token string) error
-	ResendVerificationEmail(ctx context.Context,email string) error
+	ResendVerificationEmail(ctx context.Context, email string) error
+	PromoteUser(ctx context.Context, userID string) error
+	DemoteUser(ctx context.Context, userID string) error
+	Logout(ctx context.Context, userID string) error
 }

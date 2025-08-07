@@ -31,9 +31,9 @@ type loginRequest struct {
 	Password string `json:"password" binding:"required,min=6"`
 }
 
-type refreshRequest struct {
-	RefreshToken string `json:"refresh_token" binding:"required"`
-}
+// type refreshRequest struct {
+// 	RefreshToken string `json:"refresh_token" binding:"required"`
+// }
 
 func (ac *AuthController) Regiser(c *gin.Context) {
 	var req RegisterRequest
@@ -184,4 +184,45 @@ func (a *AuthController) ResendVerification(c *gin.Context){
 
 	c.JSON(http.StatusOK, gin.H{"message": "Verification email resent"})
 
+}
+
+// Promote user handler
+func (a *AuthController) PromoteUser (c *gin.Context){
+	UserID := c.Param("id")
+	err := a.UserUsecase.PromoteUser(c.Request.Context(),UserID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error":err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message":"User promoted to admin"})
+}
+
+// Demote user handler
+func (a *AuthController)DemoteUser(c *gin.Context){
+	userID:=c.Param("id")
+
+	err := a.UserUsecase.DemoteUser(c.Request.Context(),userID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error":err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "User demoted to regular user"})
+}
+
+// Logout handler
+func (a *AuthController) Logout(c *gin.Context){
+	// extract user id from context (set by middleware)
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized,gin.H{"error":"userID not found in token"})
+		return
+	}
+
+	if err := a.UserUsecase.Logout(c.Request.Context(),userID.(string)); err != nil{
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to logout"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Logout successful"})
 }
