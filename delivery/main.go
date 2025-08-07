@@ -29,6 +29,7 @@ func main() {
 	routers.BlogRoutes(r, mongoClient)
 	routers.UserRoutes(r, mongoClient)
 	routers.CommentRoutes(r, mongoClient)
+	routers.BlogInteractionRoutes(r, mongoClient)
 
 	// RUN SERVER
 	port := os.Getenv("PORT")

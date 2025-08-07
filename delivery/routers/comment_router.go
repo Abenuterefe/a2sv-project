@@ -35,7 +35,7 @@ func CommentRoutes(r *gin.Engine, client *mongo.Client) {
 	protected.Use(middlewares.AuthMiddleware(jwtService))
 
 	// Routes that require authentication
-	protected.POST("/blogs/:blogId/comments", commentHandler.CreateComment) // Create comment (authenticated users only)
+	protected.POST("/blogs/:id/comments", commentHandler.CreateComment) // Create comment (authenticated users only)
 	protected.PUT("/comments/:id", commentHandler.UpdateComment)           // Update comment (owner only - checked in handler)
 	protected.DELETE("/comments/:id", commentHandler.DeleteComment)        // Delete comment (owner only - checked in handler)
 }

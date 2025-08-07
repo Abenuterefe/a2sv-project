@@ -32,7 +32,7 @@ func (h *CommentHandler) CreateComment(c *gin.Context) {
 	}
 
 	// Get blog ID from URL parameter
-	blogID := c.Param("blogId")
+	blogID := c.Param("id")
 	if blogID == "" {
 		c.JSON(400, gin.H{"error": "Blog ID is required"})
 		return
