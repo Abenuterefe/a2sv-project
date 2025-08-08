@@ -17,6 +17,7 @@ type userUsecase struct {
 	passwordHasher interfaces.PasswordService
 	authService    interfaces.AuthService
 	mailService    interfaces.MailService
+	oauthService   interfaces.OAuthService
 }
 
 var AccessTokenTTL = time.Minute * 15
@@ -25,12 +26,14 @@ func NewUserUsecase(
 	userRepo interfaces.UserRepository,
 	hasher interfaces.PasswordService,
 	auth interfaces.AuthService,
-	mailService interfaces.MailService) interfaces.UserUsecase {
+	mailService interfaces.MailService,
+	oauthService interfaces.OAuthService) interfaces.UserUsecase {
 	return &userUsecase{
 		userRepo:       userRepo,
 		passwordHasher: hasher,
 		authService:    auth,
 		mailService:    mailService,
+		oauthService:   oauthService,
 	}
 }
 
@@ -223,4 +226,64 @@ func (u *userUsecase) DemoteUser(ctx context.Context, userID string) error {
 // logout user
 func (u *userUsecase) Logout(ctx context.Context, userID string) error {
 	return u.userRepo.DeleteToken(ctx, userID)
+}
+
+// login using google
+func (u *userUsecase) GoogleOAuthLogin(ctx context.Context, code string) (*entities.Token, error) {
+	userInfo, err := u.oauthService.GetUserInfo(ctx, code)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := u.userRepo.FindByEmail(ctx, userInfo.Email)
+	if err != nil || user == nil {
+		//if used doesnt exist, register and verify automatically
+		newUser := &entities.User{
+			Email:     userInfo.Email,
+			Username:  userInfo.Name,
+			Verified:  true,
+			Role:      entities.RoleUser,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+
+		err := u.userRepo.Create(ctx, newUser)
+		if err != nil {
+			return nil, err
+		}
+
+		//user = newUser
+	}
+
+	//Re access the user with new object id if it was not exist
+	user, err = u.userRepo.FindByEmail(ctx, userInfo.Email)
+	if err != nil || user == nil {
+		return nil, errors.New("failed to retrieve user after creation")
+	}
+
+	accessToken, err := u.authService.CreateAccessToken(user.ID.Hex(), string(user.Role))
+	if err != nil {
+		return nil, err
+	}
+
+	refreshToken, err := u.authService.CreateRefreshToken(user.ID.Hex())
+	if err != nil {
+		return nil, err
+	}
+
+	// Populate token object
+	token := &entities.Token{
+		UserID:       user.ID.Hex(),
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresAt:    time.Now().Add(15 * time.Minute),
+	}
+
+	// Store refresh token in Database
+	if err := u.userRepo.StoreToken(ctx, token); err != nil {
+		return nil, err
+	}
+
+	return token, nil
+
 }
