@@ -19,4 +19,8 @@ type BlogRepositoryInterface interface {
 	UpdateBlogCounters(ctx context.Context, blogID string, likeChange int, dislikeChange int, viewChange int) error
 	// Get all blogs for popularity calculation
 	GetAllBlogs(ctx context.Context) ([]*entities.Blog, error)
+	// Filter blogs based on criteria
+	FilterBlogs(ctx context.Context, filter *entities.BlogFilter) ([]*entities.Blog, int64, error)
+	// Search blogs based on title and/or author
+	SearchBlogs(ctx context.Context, search *entities.BlogSearch) ([]*entities.BlogWithAuthor, int64, error)
 }
