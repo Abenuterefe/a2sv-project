@@ -79,3 +79,42 @@ func (r *blogRepository) DeleteBlog(ctx context.Context, id string) error {
 	_, err = r.collection.DeleteOne(ctx, filter)
 	return err
 }
+
+// UpdateBlogCounters increments/decrements the interaction counters for a blog
+func (r *blogRepository) UpdateBlogCounters(ctx context.Context, blogID string, likeChange int, dislikeChange int, viewChange int) error {
+	oid, err := primitive.ObjectIDFromHex(blogID)
+	if err != nil {
+		return err
+	}
+
+	filter := bson.M{"_id": oid}
+	update := bson.M{
+		"$inc": bson.M{
+			"like_count":    likeChange,
+			"dislike_count": dislikeChange,
+			"view_count":    viewChange,
+		},
+	}
+
+	_, err = r.collection.UpdateOne(ctx, filter, update)
+	return err
+}
+
+// GetAllBlogs retrieves all blogs for popularity calculation
+func (r *blogRepository) GetAllBlogs(ctx context.Context) ([]*entities.Blog, error) {
+	cursor, err := r.collection.Find(ctx, bson.M{})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	
+	var blogs []*entities.Blog
+	for cursor.Next(ctx) {
+		var blog entities.Blog
+		if err := cursor.Decode(&blog); err != nil {
+			return nil, err
+		}
+		blogs = append(blogs, &blog)
+	}
+	return blogs, cursor.Err()
+}

@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	"github.com/Abenuterefe/a2sv-project/domain/entities"
@@ -12,11 +13,15 @@ import (
 
 // blogUseCase implements the BlogUseCaseInterface
 type blogUseCase struct {
-	repo interfaces.BlogRepositoryInterface
+	repo        interfaces.BlogRepositoryInterface
+	commentRepo interfaces.CommentRepositoryInterface
 }
 
-func NewBlogUseCase(repo interfaces.BlogRepositoryInterface) interfaces.BlogUseCaseInterface {
-	return &blogUseCase{repo: repo}
+func NewBlogUseCase(repo interfaces.BlogRepositoryInterface, commentRepo interfaces.CommentRepositoryInterface) interfaces.BlogUseCaseInterface {
+	return &blogUseCase{
+		repo:        repo,
+		commentRepo: commentRepo,
+	}
 }
 
 func (u *blogUseCase) CreateBlog(ctx context.Context, blog *entities.Blog, userID string) error {
@@ -54,4 +59,73 @@ func (u *blogUseCase) UpdateBlog(ctx context.Context, blog *entities.Blog) error
 // DeleteBlog removes a blog by ID
 func (u *blogUseCase) DeleteBlog(ctx context.Context, id string) error {
 	return u.repo.DeleteBlog(ctx, id)
+}
+
+// calculatePopularityScore calculates the popularity score for a blog
+func (u *blogUseCase) calculatePopularityScore(blog *entities.Blog) float64 {
+	// Get comment count
+	commentCount, _ := u.commentRepo.GetCommentCountByBlogID(context.Background(), blog.ID.Hex())
+	
+	// Base popularity score using your algorithm
+	score := float64(blog.LikeCount*3) + float64(commentCount*5) + float64(blog.ViewCount)*0.1 + float64(blog.DislikeCount*-2)
+	
+	// Recency boost
+	recencyBoost := u.calculateRecencyBoost(blog.CreatedAt)
+	
+	return score + recencyBoost
+}
+
+// calculateRecencyBoost calculates bonus points for recent posts
+func (u *blogUseCase) calculateRecencyBoost(createdAt time.Time) float64 {
+	daysSinceCreation := time.Since(createdAt).Hours() / 24
+	
+	if daysSinceCreation <= 1 {
+		return 50 // Very recent posts
+	} else if daysSinceCreation <= 7 {
+		return 20 // Posts from this week
+	} else if daysSinceCreation <= 30 {
+		return 5 // Posts from this month
+	}
+	return 0 // Older posts
+}
+
+// GetPopularBlogs retrieves blogs sorted by popularity score
+func (u *blogUseCase) GetPopularBlogs(ctx context.Context, limit int64) ([]*entities.BlogWithPopularity, error) {
+	blogs, err := u.repo.GetAllBlogs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Convert to BlogWithPopularity and calculate scores
+	popularBlogs := make([]*entities.BlogWithPopularity, 0, len(blogs))
+	for _, blog := range blogs {
+		commentCount, _ := u.commentRepo.GetCommentCountByBlogID(ctx, blog.ID.Hex())
+		
+		popularBlog := &entities.BlogWithPopularity{
+			ID:              blog.ID,
+			Title:           blog.Title,
+			Content:         blog.Content,
+			UserID:          blog.UserID,
+			LikeCount:       blog.LikeCount,
+			DislikeCount:    blog.DislikeCount,
+			ViewCount:       blog.ViewCount,
+			CommentCount:    int(commentCount),
+			PopularityScore: u.calculatePopularityScore(blog),
+			CreatedAt:       blog.CreatedAt,
+			UpdatedAt:       blog.UpdatedAt,
+		}
+		popularBlogs = append(popularBlogs, popularBlog)
+	}
+	
+	// Sort by popularity score (descending)
+	sort.Slice(popularBlogs, func(i, j int) bool {
+		return popularBlogs[i].PopularityScore > popularBlogs[j].PopularityScore
+	})
+	
+	// Apply limit
+	if limit > 0 && int64(len(popularBlogs)) > limit {
+		popularBlogs = popularBlogs[:limit]
+	}
+	
+	return popularBlogs, nil
 }

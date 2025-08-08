@@ -129,3 +129,26 @@ func (h *BlogHandler) DeleteBlog(c *gin.Context) {
 	}
 	c.Status(204)
 }
+
+// GetPopularBlogs handles GET /blogs/popular
+func (h *BlogHandler) GetPopularBlogs(c *gin.Context) {
+	limitStr := c.DefaultQuery("limit", "10")
+	limit := int64(10)
+	if limitStr != "10" {
+		if parsedLimit, err := strconv.ParseInt(limitStr, 10, 64); err == nil && parsedLimit > 0 {
+			limit = parsedLimit
+		}
+	}
+	
+	blogs, err := h.UseCase.GetPopularBlogs(c.Request.Context(), limit)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	
+	c.JSON(200, gin.H{
+		"message": "Popular blogs retrieved successfully",
+		"data":    blogs,
+		"count":   len(blogs),
+	})
+}

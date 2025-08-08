@@ -17,4 +17,6 @@ type BlogUseCaseInterface interface {
 	UpdateBlog(ctx context.Context, blog *entities.Blog) error
 	// Delete a blog by its ID
 	DeleteBlog(ctx context.Context, id string) error
+	// Get popular blogs with popularity scores
+	GetPopularBlogs(ctx context.Context, limit int64) ([]*entities.BlogWithPopularity, error)
 }

@@ -12,15 +12,17 @@ import (
 
 // BlogRoutes initializes the blog-related routes with authentication and authorization.
 func BlogRoutes(r *gin.Engine, client *mongo.Client) {
-	// Get the blog collection
+	// Get collections
 	blogCollection := client.Database("g6_starter_projectDb").Collection("blogs")
+	commentCollection := client.Database("g6_starter_projectDb").Collection("comments")
 
 	// Initialize JWT service for authentication
 	jwtService := auth.NewJWTService()
 
-	// initialization of repo, usecase, and handler
+	// initialization of repositories, usecase, and handler
 	blogRepo := repository.NewBlogRepositoryMongo(blogCollection)
-	blogUseCase := usecase.NewBlogUseCase(blogRepo)
+	commentRepo := repository.NewCommentRepositoryMongo(commentCollection)
+	blogUseCase := usecase.NewBlogUseCase(blogRepo, commentRepo)
 	blogHandler := controllers.NewBlogHandler(blogUseCase)
 
 	// Group routes under /api/v1
@@ -28,6 +30,7 @@ func BlogRoutes(r *gin.Engine, client *mongo.Client) {
 
 	// Public routes (no authentication required)
 	api.GET("/blogs/:id", blogHandler.GetBlogByID) // Anyone can view a specific blog
+	api.GET("/blogs/popular", blogHandler.GetPopularBlogs) // Anyone can view popular blogs
 
 	// Protected routes (authentication required)
 	protected := api.Group("/blogs")
