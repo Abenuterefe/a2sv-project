@@ -99,3 +99,22 @@ func (r *blogRepository) UpdateBlogCounters(ctx context.Context, blogID string, 
 	_, err = r.collection.UpdateOne(ctx, filter, update)
 	return err
 }
+
+// GetAllBlogs retrieves all blogs for popularity calculation
+func (r *blogRepository) GetAllBlogs(ctx context.Context) ([]*entities.Blog, error) {
+	cursor, err := r.collection.Find(ctx, bson.M{})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	
+	var blogs []*entities.Blog
+	for cursor.Next(ctx) {
+		var blog entities.Blog
+		if err := cursor.Decode(&blog); err != nil {
+			return nil, err
+		}
+		blogs = append(blogs, &blog)
+	}
+	return blogs, cursor.Err()
+}

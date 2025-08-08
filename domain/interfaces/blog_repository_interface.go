@@ -17,4 +17,6 @@ type BlogRepositoryInterface interface {
 	DeleteBlog(ctx context.Context, id string) error
 	// Update blog interaction counters (likes, dislikes, views)
 	UpdateBlogCounters(ctx context.Context, blogID string, likeChange int, dislikeChange int, viewChange int) error
+	// Get all blogs for popularity calculation
+	GetAllBlogs(ctx context.Context) ([]*entities.Blog, error)
 }

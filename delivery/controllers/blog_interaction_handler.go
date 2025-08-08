@@ -48,14 +48,22 @@ func (h *BlogInteractionHandler) DislikeBlog(c *gin.Context) {
 // ViewBlog handles POST /blogs/:id/view
 func (h *BlogInteractionHandler) ViewBlog(c *gin.Context) {
 	blogID := c.Param("id")
-	userID, _ := c.Get("userID") // userID may be empty for anonymous views
+	
+	// Get user ID (empty string if not authenticated)
+	userID, exists := c.Get("userID")
 	var uid string
-	if userID != nil {
+	if exists && userID != nil {
 		uid = userID.(string)
 	}
-	if err := h.UseCase.ViewBlog(c.Request.Context(), blogID, uid); err != nil {
+	
+	// Get IP address and User-Agent for anonymous tracking
+	ipAddress := c.ClientIP()
+	userAgent := c.GetHeader("User-Agent")
+	
+	if err := h.UseCase.ViewBlog(c.Request.Context(), blogID, uid, ipAddress, userAgent); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	
 	c.JSON(http.StatusOK, gin.H{"message": "Blog view recorded"})
 }

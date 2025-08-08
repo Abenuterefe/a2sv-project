@@ -81,3 +81,13 @@ func (r *commentRepository) DeleteComment(ctx context.Context, id string) error 
 	_, err = r.collection.DeleteOne(ctx, filter)
 	return err
 }
+
+// GetCommentCountByBlogID counts comments for a specific blog
+func (r *commentRepository) GetCommentCountByBlogID(ctx context.Context, blogID string) (int64, error) {
+	blogObjID, err := primitive.ObjectIDFromHex(blogID)
+	if err != nil {
+		return 0, err
+	}
+	filter := bson.M{"blog_id": blogObjID}
+	return r.collection.CountDocuments(ctx, filter)
+}
