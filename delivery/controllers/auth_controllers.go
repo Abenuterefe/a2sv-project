@@ -61,10 +61,10 @@ func (ac *AuthController) Regiser(c *gin.Context) {
 		return
 	}
 
-	// mock mail (optional)
-	go func() {
-		println("[MOCK EMAIL] Sent verification mail to", user.Email)
-	}()
+	//// mock mail (optional)
+	//go func() {
+	//	println("[MOCK EMAIL] Sent verification mail to", user.Email)
+	//}()
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Registration successful. Please verify your email."})
 
@@ -234,7 +234,7 @@ func (a *AuthController) Logout(c *gin.Context) {
 
 // Google authentication handler
 func (a *AuthController) GoogleLogin(c *gin.Context) {
-	state := "my_state" // Ideally random & stored in cookie/session
+	state := "my_state1" // Ideally random & stored in cookie/session
 	authURL := a.oauthService.GetAuthURL(state)
 	c.Redirect(http.StatusTemporaryRedirect, authURL)
 }
@@ -260,4 +260,41 @@ func (a *AuthController) GoogleCallback(c *gin.Context) {
 		"expires_at":    token.ExpiresAt,
 	})
 
+}
+
+// Password reset REQUEST handler
+func (a *AuthController) ForgotPassword(c *gin.Context) {
+	var req struct {
+		Email string `json:"email" binding:"required,email"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := a.UserUsecase.RequestPasswordReset(c.Request.Context(), req.Email); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send reset email"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Password reset email sent"})
+}
+
+// Password reset handler
+func (a *AuthController) ResetPassword(c *gin.Context) {
+	var req struct {
+		Token       string `json:"token" binding:"required"`
+		NewPassword string `json:"new_password" binding:"required,min=6"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := a.UserUsecase.ResetPassword(c.Request.Context(), req.Token, req.NewPassword); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Password reset successful"})
 }
