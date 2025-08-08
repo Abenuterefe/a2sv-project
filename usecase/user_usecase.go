@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -13,11 +14,12 @@ import (
 )
 
 type userUsecase struct {
-	userRepo       interfaces.UserRepository
-	passwordHasher interfaces.PasswordService
-	authService    interfaces.AuthService
-	mailService    interfaces.MailService
-	oauthService   interfaces.OAuthService
+	userRepo            interfaces.UserRepository
+	passwordHasher      interfaces.PasswordService
+	authService         interfaces.AuthService
+	mailService         interfaces.MailService
+	oauthService        interfaces.OAuthService
+	secureToknGenerator interfaces.ISecureTokenGenerator
 }
 
 var AccessTokenTTL = time.Minute * 15
@@ -27,13 +29,15 @@ func NewUserUsecase(
 	hasher interfaces.PasswordService,
 	auth interfaces.AuthService,
 	mailService interfaces.MailService,
-	oauthService interfaces.OAuthService) interfaces.UserUsecase {
+	oauthService interfaces.OAuthService,
+	secureToknGenerator interfaces.ISecureTokenGenerator) interfaces.UserUsecase {
 	return &userUsecase{
-		userRepo:       userRepo,
-		passwordHasher: hasher,
-		authService:    auth,
-		mailService:    mailService,
-		oauthService:   oauthService,
+		userRepo:            userRepo,
+		passwordHasher:      hasher,
+		authService:         auth,
+		mailService:         mailService,
+		oauthService:        oauthService,
+		secureToknGenerator: secureToknGenerator,
 	}
 }
 
@@ -286,4 +290,51 @@ func (u *userUsecase) GoogleOAuthLogin(ctx context.Context, code string) (*entit
 
 	return token, nil
 
+}
+
+// reset password request
+func (u *userUsecase) RequestPasswordReset(ctx context.Context, email string) error {
+	user, err := u.userRepo.FindByEmail(ctx, email)
+	if err != nil {
+		return err
+	}
+
+	//===generate secure cryptographic token=========
+	//token := u.secureToknGenerator.GenerateSecureToken()
+	token := "hardcoded"
+
+	resetToken := &entities.ResetToken{
+		UserID:    user.ID.Hex(),
+		Token:     token,
+		ExpiresAt: time.Now().Add(15 * time.Minute),
+	}
+
+	//save the token
+	if err := u.userRepo.SaveResetToken(ctx, resetToken); err != nil {
+		return err
+	}
+
+	//Send reset link(link to Reset password frontend page = http://localhost:3000/reset-password?token=abc123 via email
+	resetURL := fmt.Sprintf("http://localhost:3000/reset-password?token=%s", &token)
+	return u.mailService.SendPasswordResetEmail(user.Email, resetURL)
+}
+
+// Reset password
+func (u *userUsecase) ResetPassword(ctx context.Context, token, newPassword string) error {
+	resetToken, err := u.userRepo.FindByResetToken(ctx, token)
+	if err != nil || time.Now().After(resetToken.ExpiresAt) {
+		return errors.New("Invalid or expired token")
+	}
+
+	hashedNewPwd, err := u.passwordHasher.HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+
+	userID, _ := primitive.ObjectIDFromHex(resetToken.UserID)
+	if err := u.userRepo.UpdatePassword(ctx, userID, hashedNewPwd); err != nil {
+		return err
+	}
+
+	return u.userRepo.DeleteResetToken(ctx, token)
 }

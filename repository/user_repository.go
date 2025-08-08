@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"errors"
+	"time"
 
 	"github.com/Abenuterefe/a2sv-project/domain/entities"
 	"go.mongodb.org/mongo-driver/bson"
@@ -12,12 +14,14 @@ import (
 type userRepository struct {
 	db         *mongo.Database
 	collection *mongo.Collection
+	resetTokenCollection *mongo.Collection
 }
 
 func NewUserRepository(db *mongo.Database) *userRepository {
 	return &userRepository{
-		collection: db.Collection("user"),
 		db:         db,
+		collection: db.Collection("user"),
+		resetTokenCollection:db.Collection("reset_tokens"),
 	}
 }
 
@@ -106,4 +110,47 @@ func (r *userRepository) DeleteTokenByUserID(ctx context.Context, userID string)
 	filter := bson.M{"user_id": userID}
 	_, err := r.db.Collection("tokens").DeleteOne(ctx, filter)
 	return err
+}
+
+
+//RESET TOKEN REPOSITORY
+//save reset token
+func (r *userRepository) SaveResetToken (ctx context.Context, token *entities.ResetToken) error{
+	_, err := r.resetTokenCollection.InsertOne(ctx, token)
+	return err
+}
+
+//find resetToken by user id
+func (r *userRepository) FindByResetToken(ctx context.Context, token string)(*entities.ResetToken,error){
+	var resetToken entities.ResetToken
+	err := r.resetTokenCollection.FindOne(ctx, map[string]interface{}{"token": token}).Decode(&resetToken)
+	return &resetToken, err
+}
+
+//Delete reset token function
+func (r *userRepository) DeleteResetToken(ctx context.Context, token string) error {
+	_, err := r.resetTokenCollection.DeleteOne(ctx, map[string]interface{}{"token": token})
+	return err
+}
+
+//Update user password
+func (r *userRepository) UpdatePassword(ctx context.Context, userID primitive.ObjectID, hashedPassword string) error {
+	filter := bson.M{"_id": userID}
+	update := bson.M{
+		"$set": bson.M{
+			"password":  hashedPassword,
+			"updatedAt": time.Now(),
+		},
+	}
+
+	result, err := r.collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+
+	if result.MatchedCount == 0 {
+		return errors.New("user not found")
+	}
+
+	return nil
 }
