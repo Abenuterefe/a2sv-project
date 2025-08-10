@@ -21,6 +21,12 @@ type UserRepository interface {
 	// emial verification funcs
 	FindByVerificationToken(ctx context.Context, token string) (*entities.User, error)
 	Update(ctx context.Context, user *entities.User) error
+	UpdatePassword(ctx context.Context, userID primitive.ObjectID, hashedPassword string) error
 
 	DeleteTokenByUserID(ctx context.Context, userID string) error
+
+	//Reset token repository
+	SaveResetToken(ctx context.Context, token *entities.ResetToken) error
+	FindByResetToken(ctx context.Context, token string)(*entities.ResetToken, error)
+	DeleteResetToken(ctx context.Context,token string) error
 }

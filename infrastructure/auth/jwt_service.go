@@ -38,13 +38,15 @@ func (s *JWTService) CreateAccessToken(userID, role string) (string, error) {
 }
 
 // CreateRefreshToken generates a new JWT refresh token
-func (s *JWTService) CreateRefreshToken(userID string) (string, error) {
-	claims := jwt.RegisteredClaims{
-		Subject:   userID,
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(RefreshTokenTTL)),
-		IssuedAt:  jwt.NewNumericDate(time.Now()),
+func (s *JWTService) CreateRefreshToken(userID, role string) (string, error) {
+	claims := entities.JWTClaims{
+		UserID: userID,
+		Role:   role,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(AccessTokenTTL)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
 	}
-
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(os.Getenv("REFRESH_SECRET")))
 }

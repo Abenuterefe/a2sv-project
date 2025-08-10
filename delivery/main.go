@@ -33,6 +33,8 @@ func main() {
 	routers.UserRoutes(r, mongoClient)
 	routers.ProfileRoutes(r, mongoClient)
 	routers.AiRoutes(r)
+	routers.CommentRoutes(r, mongoClient)
+	routers.BlogInteractionRoutes(r, mongoClient)
 
 	port := os.Getenv("PORT")
 	if port == "" {

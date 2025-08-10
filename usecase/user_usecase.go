@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -13,10 +14,12 @@ import (
 )
 
 type userUsecase struct {
-	userRepo       interfaces.UserRepository
-	passwordHasher interfaces.PasswordService
-	authService    interfaces.AuthService
-	mailService    interfaces.MailService
+	userRepo            interfaces.UserRepository
+	passwordHasher      interfaces.PasswordService
+	authService         interfaces.AuthService
+	mailService         interfaces.MailService
+	oauthService        interfaces.OAuthService
+	secureToknGenerator interfaces.ISecureTokenGenerator
 }
 
 var AccessTokenTTL = time.Minute * 15
@@ -25,12 +28,16 @@ func NewUserUsecase(
 	userRepo interfaces.UserRepository,
 	hasher interfaces.PasswordService,
 	auth interfaces.AuthService,
-	mailService interfaces.MailService) interfaces.UserUsecase {
+	mailService interfaces.MailService,
+	oauthService interfaces.OAuthService,
+	secureToknGenerator interfaces.ISecureTokenGenerator) interfaces.UserUsecase {
 	return &userUsecase{
-		userRepo:       userRepo,
-		passwordHasher: hasher,
-		authService:    auth,
-		mailService:    mailService,
+		userRepo:            userRepo,
+		passwordHasher:      hasher,
+		authService:         auth,
+		mailService:         mailService,
+		oauthService:        oauthService,
+		secureToknGenerator: secureToknGenerator,
 	}
 }
 
@@ -98,7 +105,7 @@ func (u *userUsecase) Login(ctx context.Context, email, password string) (*entit
 		return nil, err
 	}
 
-	refreshToken, err := u.authService.CreateRefreshToken(user.ID.Hex())
+	refreshToken, err := u.authService.CreateRefreshToken(user.ID.Hex(), string(user.Role))
 	if err != nil {
 		return nil, err
 	}
@@ -226,3 +233,112 @@ func (u *userUsecase) DemoteUser(ctx context.Context, userID string) error {
 func (u *userUsecase) Logout(ctx context.Context, userID string) error {
 	return u.userRepo.DeleteToken(ctx, userID)
 }
+
+
+// login using google
+func (u *userUsecase) GoogleOAuthLogin(ctx context.Context, code string) (*entities.Token, error) {
+	userInfo, err := u.oauthService.GetUserInfo(ctx, code)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := u.userRepo.FindByEmail(ctx, userInfo.Email)
+	if err != nil || user == nil {
+		//if used doesnt exist, register and verify automatically
+		newUser := &entities.User{
+			Email:     userInfo.Email,
+			Username:  userInfo.Name,
+			Verified:  true,
+			Role:      entities.RoleUser,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+
+		err := u.userRepo.Create(ctx, newUser)
+		if err != nil {
+			return nil, err
+		}
+
+		//user = newUser
+	}
+
+	//Re access the user with new object id if it was not exist
+	user, err = u.userRepo.FindByEmail(ctx, userInfo.Email)
+	if err != nil || user == nil {
+		return nil, errors.New("failed to retrieve user after creation")
+	}
+
+	accessToken, err := u.authService.CreateAccessToken(user.ID.Hex(), string(user.Role))
+	if err != nil {
+		return nil, err
+	}
+
+	refreshToken, err := u.authService.CreateRefreshToken(user.ID.Hex(), string(user.Role))
+	if err != nil {
+		return nil, err
+	}
+
+	// Populate token object
+	token := &entities.Token{
+		UserID:       user.ID.Hex(),
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresAt:    time.Now().Add(15 * time.Minute),
+	}
+
+	// Store refresh token in Database
+	if err := u.userRepo.StoreToken(ctx, token); err != nil {
+		return nil, err
+	}
+
+	return token, nil
+
+}
+
+// reset password request
+func (u *userUsecase) RequestPasswordReset(ctx context.Context, email string) error {
+	user, err := u.userRepo.FindByEmail(ctx, email)
+	if err != nil {
+		return err
+	}
+
+	//===generate secure cryptographic token=========
+	//token := "hardcoded"
+	token := u.secureToknGenerator.GenerateSecureToken()
+
+	resetToken := &entities.ResetToken{
+		UserID:    user.ID.Hex(),
+		Token:     token,
+		ExpiresAt: time.Now().Add(15 * time.Minute),
+	}
+
+	//save the token
+	if err := u.userRepo.SaveResetToken(ctx, resetToken); err != nil {
+		return err
+	}
+
+	//Send reset link(link to Reset password frontend page = http://localhost:3000/reset-password?token=abc123 via email
+	resetURL := fmt.Sprintf("http://localhost:3000/reset-password?token=%s", &token)
+	return u.mailService.SendPasswordResetEmail(user.Email, resetURL)
+}
+
+// Reset password
+func (u *userUsecase) ResetPassword(ctx context.Context, token, newPassword string) error {
+	resetToken, err := u.userRepo.FindByResetToken(ctx, token)
+	if err != nil || time.Now().After(resetToken.ExpiresAt) {
+		return errors.New("invalid or expired token")
+	}
+
+	hashedNewPwd, err := u.passwordHasher.HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+
+	userID, _ := primitive.ObjectIDFromHex(resetToken.UserID)
+	if err := u.userRepo.UpdatePassword(ctx, userID, hashedNewPwd); err != nil {
+		return err
+	}
+
+	return u.userRepo.DeleteResetToken(ctx, token)
+}
+

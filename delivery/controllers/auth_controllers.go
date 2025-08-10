@@ -1,23 +1,26 @@
 package controllers
 
 import (
-	"context"
 	"net/http"
 	"strings"
 
-	"time"
-
 	"github.com/Abenuterefe/a2sv-project/domain/entities"
 	"github.com/Abenuterefe/a2sv-project/domain/interfaces"
+	"github.com/Abenuterefe/a2sv-project/utils"
 	"github.com/gin-gonic/gin"
 )
 
 type AuthController struct {
-	UserUsecase interfaces.UserUsecase
+	UserUsecase  interfaces.UserUsecase
+	oauthService interfaces.OAuthService
 }
 
-func NewAuthController(userUC interfaces.UserUsecase) *AuthController {
-	return &AuthController{UserUsecase: userUC}
+func NewAuthController(userUC interfaces.UserUsecase,
+	oauthServ interfaces.OAuthService) *AuthController {
+	return &AuthController{
+		UserUsecase:  userUC,
+		oauthService: oauthServ,
+	}
 }
 
 type RegisterRequest struct {
@@ -49,17 +52,20 @@ func (ac *AuthController) Regiser(c *gin.Context) {
 		Password: req.Password,
 	}
 
-	if err := ac.UserUsecase.Regiser(c.Request.Context(), user); err != nil {
+	ctx, cancel := utils.CreateContext()
+	defer cancel()
+
+	if err := ac.UserUsecase.Regiser(ctx, user); err != nil {
 
 		c.JSON(http.StatusBadRequest, gin.H{"error1 malli maali": err.Error()})
 
 		return
 	}
 
-	// mock mail (optional)
-	go func() {
-		println("[MOCK EMAIL] Sent verification mail to", user.Email)
-	}()
+	//// mock mail (optional)
+	//go func() {
+	//	println("[MOCK EMAIL] Sent verification mail to", user.Email)
+	//}()
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Registration successful. Please verify your email."})
 
@@ -75,7 +81,7 @@ func (ac *AuthController) Login(c *gin.Context) {
 	}
 
 	// create context for login handler
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := utils.CreateContext()
 	defer cancel()
 
 	// Generate tokens
@@ -86,7 +92,7 @@ func (ac *AuthController) Login(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":       "login seccussful",
+		"message":       "login with Cridential (pwd, email)  seccussful",
 		"access_token":  token.AccessToken,
 		"refresh_token": token.RefreshToken,
 		"expires_at":    token.ExpiresAt,
@@ -111,7 +117,7 @@ func (ac *AuthController) Refresh(c *gin.Context) {
 
 	refreshToken := fields[1]
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := utils.CreateContext()
 	defer cancel()
 
 	token, err := ac.UserUsecase.RefreshToken(ctx, refreshToken)
@@ -145,38 +151,44 @@ func (a *AuthController) AdminDashboard(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Welcome to the Admin Dashboard",
 	})
-  
+
 }
 
 // Verify email handler
-func (a *AuthController) VerifyEmail(c *gin.Context){
+func (a *AuthController) VerifyEmail(c *gin.Context) {
 	token := c.Query("token")
-	if token == ""{
+	if token == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing verification token"})
 		return
 	}
 
-	err := a.UserUsecase.VerifyEmail(c.Request.Context(), token)
+	ctx, cancel := utils.CreateContext()
+	defer cancel()
+
+	err := a.UserUsecase.VerifyEmail(ctx, token)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message":"Email verified successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Email verified successfully"})
 }
 
 // Resend verification handler
-func (a *AuthController) ResendVerification(c *gin.Context){
-	var req struct{
+func (a *AuthController) ResendVerification(c *gin.Context) {
+	var req struct {
 		Email string `json:"email" binding:"required,email"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error":"Invalid email format"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email format"})
 		return
 	}
 
-	err := a.UserUsecase.ResendVerificationEmail(c.Request.Context(), req.Email)
+	ctx, cancel := utils.CreateContext()
+	defer cancel()
+
+	err := a.UserUsecase.ResendVerificationEmail(ctx, req.Email)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -187,42 +199,128 @@ func (a *AuthController) ResendVerification(c *gin.Context){
 }
 
 // Promote user handler
-func (a *AuthController) PromoteUser (c *gin.Context){
+func (a *AuthController) PromoteUser(c *gin.Context) {
 	UserID := c.Param("id")
-	err := a.UserUsecase.PromoteUser(c.Request.Context(),UserID)
+
+	ctx, cancel := utils.CreateContext()
+	defer cancel()
+
+	err := a.UserUsecase.PromoteUser(ctx, UserID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error":err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message":"User promoted to admin"})
+	c.JSON(http.StatusOK, gin.H{"message": "User promoted to admin"})
 }
 
 // Demote user handler
-func (a *AuthController)DemoteUser(c *gin.Context){
-	userID:=c.Param("id")
+func (a *AuthController) DemoteUser(c *gin.Context) {
+	userID := c.Param("id")
 
-	err := a.UserUsecase.DemoteUser(c.Request.Context(),userID)
+	ctx, cancel := utils.CreateContext()
+	defer cancel()
+
+	err := a.UserUsecase.DemoteUser(ctx, userID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error":err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "User demoted to regular user"})
 }
 
 // Logout handler
-func (a *AuthController) Logout(c *gin.Context){
+func (a *AuthController) Logout(c *gin.Context) {
 	// extract user id from context (set by middleware)
 	userID, exists := c.Get("userID")
 	if !exists {
-		c.JSON(http.StatusUnauthorized,gin.H{"error":"userID not found in token"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "userID not found in token"})
 		return
 	}
 
-	if err := a.UserUsecase.Logout(c.Request.Context(),userID.(string)); err != nil{
+	ctx, cancel := utils.CreateContext()
+	defer cancel()
+
+	if err := a.UserUsecase.Logout(ctx, userID.(string)); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to logout"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Logout successful"})
+}
+
+// Google authentication handler
+func (a *AuthController) GoogleLogin(c *gin.Context) {
+	state := "my_state1" // Ideally random & stored in cookie/session
+	authURL := a.oauthService.GetAuthURL(state)
+	c.Redirect(http.StatusTemporaryRedirect, authURL)
+}
+
+// Google call back handler (request redirected from google)
+func (a *AuthController) GoogleCallback(c *gin.Context) {
+	code := c.Query("code")
+	if code == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Code not found in query"})
+		return
+	}
+
+	ctx, cancel := utils.CreateContext()
+	defer cancel()
+
+	//generate authentication token for later login like we did for Login handler
+	token, err := a.UserUsecase.GoogleOAuthLogin(ctx, code)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message":       "login with GOOGLE seccussful!",
+		"access_token":  token.AccessToken,
+		"refresh_token": token.RefreshToken,
+		"expires_at":    token.ExpiresAt,
+	})
+
+}
+
+// Password reset REQUEST handler
+func (a *AuthController) ForgotPassword(c *gin.Context) {
+	var req struct {
+		Email string `json:"email" binding:"required,email"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx, cancel := utils.CreateContext()
+	defer cancel()
+
+	if err := a.UserUsecase.RequestPasswordReset(ctx, req.Email); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send reset email"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Password reset email sent"})
+}
+
+// Password reset handler
+func (a *AuthController) ResetPassword(c *gin.Context) {
+	var req struct {
+		Token       string `json:"token" binding:"required"`
+		NewPassword string `json:"new_password" binding:"required,min=6"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx, cancel := utils.CreateContext()
+	defer cancel()
+
+	if err := a.UserUsecase.ResetPassword(ctx, req.Token, req.NewPassword); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Password reset successful"})
 }

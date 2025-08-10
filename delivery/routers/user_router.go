@@ -20,11 +20,13 @@ func UserRoutes(r *gin.Engine, mongoClient *mongo.Client) {
 	PasswordService := auth.NewBcryptPasswordService()
 	jwtService := auth.NewJWTService()
 	mailService := mail.NewMailService()
+	oauthService := auth.NewGoogleOAuthService()
+	secureToken := auth.NewSecureTokenGenerator()
 
 	// Initialize repository, usecase, controller
 	userRepo := repository.NewUserRepository(db)
-	userUseCase := usecase.NewUserUsecase(userRepo, PasswordService, jwtService, mailService)
-	authCtrl := controllers.NewAuthController(userUseCase)
+	userUseCase := usecase.NewUserUsecase(userRepo, PasswordService, jwtService, mailService, oauthService, secureToken)
+	authCtrl := controllers.NewAuthController(userUseCase, oauthService)
 
 	// ----------------------
 	// Auth Routes (/auth)
@@ -36,6 +38,12 @@ func UserRoutes(r *gin.Engine, mongoClient *mongo.Client) {
 		authGroup.POST("/refresh", authCtrl.Refresh)
 		authGroup.GET("/verify", authCtrl.VerifyEmail)
 		authGroup.POST("/resend-verification", authCtrl.ResendVerification)
+		//login with google
+		authGroup.GET("/google/login", authCtrl.GoogleLogin)
+		authGroup.GET("/google/callback", authCtrl.GoogleCallback)
+		//forget and reset pwd
+		authGroup.POST("/forgot-password", authCtrl.ForgotPassword)
+		authGroup.POST("/reset-password", authCtrl.ResetPassword)
 	}
 
 	// ----------------------
@@ -49,8 +57,8 @@ func UserRoutes(r *gin.Engine, mongoClient *mongo.Client) {
 	}
 
 	// ------Logout------//
-	protected.POST("/logout",authCtrl.Logout)
-	
+	protected.POST("/logout", authCtrl.Logout)
+
 	// ----------------------
 	// Admin-only Routes (/user/admin)
 	// ----------------------
