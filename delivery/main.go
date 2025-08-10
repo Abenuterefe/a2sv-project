@@ -12,32 +12,36 @@ import (
 
 func main() {
 	err := godotenv.Load()
-
 	if err != nil {
-		log.Println("⚠️ .env file is not find")
+		log.Println("⚠️ .env file is not found")
 	}
 
-	// =========================================  //
 	// CONNECT TO MONGODB DATABASE
 	mongoClient, err := database.ConnectMongoDB()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// CALL AND CREATE ROUTER
+	// CREATE ROUTER
 	r := gin.Default()
+
+	// ✅ Serve static files (images) from /uploads
+	r.Static("/uploads", "./uploads")
+
+	// ROUTES
 	routers.BlogRoutes(r, mongoClient)
 	routers.UserRoutes(r, mongoClient)
+	routers.ProfileRoutes(r, mongoClient)
+	routers.AiRoutes(r)
 	routers.CommentRoutes(r, mongoClient)
 	routers.BlogInteractionRoutes(r, mongoClient)
 
-	// RUN SERVER
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 
-	// 👇starts the actual server
+	// START SERVER
 	if err := r.Run(":" + port); err != nil {
 		log.Fatal("❌ Failed to start server:", err)
 	}

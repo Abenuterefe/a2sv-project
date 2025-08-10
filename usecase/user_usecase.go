@@ -58,11 +58,13 @@ func (u *userUsecase) Regiser(ctx context.Context, user *entities.User) error {
 		return err
 	}
 
+
 	user.Password = hashedPwd
 
+	
 	// Fill other fields of user
 	user.ID = primitive.NewObjectID()
-	user.Role = entities.RoleUser //by default role is user role
+	user.Role = entities.RoleAdmin //by default role is user role
 	user.Verified = false
 	user.VerificationToken = uuid.New().String()
 	user.CreatedAt = time.Now()
@@ -232,6 +234,7 @@ func (u *userUsecase) Logout(ctx context.Context, userID string) error {
 	return u.userRepo.DeleteToken(ctx, userID)
 }
 
+
 // login using google
 func (u *userUsecase) GoogleOAuthLogin(ctx context.Context, code string) (*entities.Token, error) {
 	userInfo, err := u.oauthService.GetUserInfo(ctx, code)
@@ -338,3 +341,4 @@ func (u *userUsecase) ResetPassword(ctx context.Context, token, newPassword stri
 
 	return u.userRepo.DeleteResetToken(ctx, token)
 }
+
