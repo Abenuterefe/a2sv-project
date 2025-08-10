@@ -51,11 +51,13 @@ func (u *userUsecase) Regiser(ctx context.Context, user *entities.User) error {
 		return err
 	}
 
+
 	user.Password = hashedPwd
 
+	
 	// Fill other fields of user
 	user.ID = primitive.NewObjectID()
-	user.Role = entities.RoleUser //by default role is user role
+	user.Role = entities.RoleAdmin //by default role is user role
 	user.Verified = false
 	user.VerificationToken = uuid.New().String()
 	user.CreatedAt = time.Now()

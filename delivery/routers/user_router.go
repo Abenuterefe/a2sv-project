@@ -46,7 +46,6 @@ func UserRoutes(r *gin.Engine, mongoClient *mongo.Client) {
 
 	//-----Regular user only------- //
 	{
-		protected.GET("/profile", middlewares.UserOnlyMiddleware(), authCtrl.Profile)
 	}
 
 	// ------Logout------//

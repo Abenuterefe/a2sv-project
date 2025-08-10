@@ -107,3 +107,12 @@ func (r *userRepository) DeleteTokenByUserID(ctx context.Context, userID string)
 	_, err := r.db.Collection("tokens").DeleteOne(ctx, filter)
 	return err
 }
+
+func (r *userRepository) UpdateUsername(ctx context.Context, userID primitive.ObjectID, username string) error {
+    filter := bson.M{"_id": userID}
+    update := bson.M{"$set": bson.M{"username": username}}
+
+    _, err := r.collection.UpdateOne(ctx, filter, update)
+    return err
+}
+
