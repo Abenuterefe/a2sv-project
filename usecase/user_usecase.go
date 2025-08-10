@@ -103,7 +103,7 @@ func (u *userUsecase) Login(ctx context.Context, email, password string) (*entit
 		return nil, err
 	}
 
-	refreshToken, err := u.authService.CreateRefreshToken(user.ID.Hex())
+	refreshToken, err := u.authService.CreateRefreshToken(user.ID.Hex(), string(user.Role))
 	if err != nil {
 		return nil, err
 	}
@@ -270,7 +270,7 @@ func (u *userUsecase) GoogleOAuthLogin(ctx context.Context, code string) (*entit
 		return nil, err
 	}
 
-	refreshToken, err := u.authService.CreateRefreshToken(user.ID.Hex())
+	refreshToken, err := u.authService.CreateRefreshToken(user.ID.Hex(), string(user.Role))
 	if err != nil {
 		return nil, err
 	}
@@ -300,8 +300,8 @@ func (u *userUsecase) RequestPasswordReset(ctx context.Context, email string) er
 	}
 
 	//===generate secure cryptographic token=========
-	//token := u.secureToknGenerator.GenerateSecureToken()
-	token := "hardcoded"
+	//token := "hardcoded"
+	token := u.secureToknGenerator.GenerateSecureToken()
 
 	resetToken := &entities.ResetToken{
 		UserID:    user.ID.Hex(),
@@ -323,7 +323,7 @@ func (u *userUsecase) RequestPasswordReset(ctx context.Context, email string) er
 func (u *userUsecase) ResetPassword(ctx context.Context, token, newPassword string) error {
 	resetToken, err := u.userRepo.FindByResetToken(ctx, token)
 	if err != nil || time.Now().After(resetToken.ExpiresAt) {
-		return errors.New("Invalid or expired token")
+		return errors.New("invalid or expired token")
 	}
 
 	hashedNewPwd, err := u.passwordHasher.HashPassword(newPassword)
