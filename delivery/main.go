@@ -27,7 +27,7 @@ func main() {
 	// CREATE ROUTER
 	r := gin.Default()
 
-	// ✅ Serve static files (images) from /uploads
+	//  Serve static files (images) from /uploads
 	r.Static("/uploads", "./uploads")
 
 	// ROUTES
