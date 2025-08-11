@@ -6,22 +6,40 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 
 	"github.com/Abenuterefe/a2sv-project/domain/entities"
 )
 
-const (
-	openRouterURL = "https://openrouter.ai/api/v1/chat/completions"
-	apiKey        = "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"
-	model         = "deepseek/deepseek-chat-v3-0324:free"
+var (
+	openRouterURL string
+	apiKey        string
+	model         string
 )
 
 type OpenAIService struct{}
 
 func NewOpenAIService() *OpenAIService {
 	return &OpenAIService{}
+}
+
+// Setup must be called AFTER godotenv.Load() in main.go
+func Setup() {
+	apiKey = os.Getenv("OPENROUTER_API_KEY")
+	openRouterURL = os.Getenv("OPENROUTERURL")
+	model = os.Getenv("MODEL")
+
+	if apiKey == "" {
+		panic("Missing environment variable: OPENROUTER_API_KEY")
+	}
+	if openRouterURL == "" {
+		panic("Missing environment variable: OPENROUTERURL")
+	}
+	if model == "" {
+		panic("Missing environment variable: MODEL")
+	}
 }
 
 type openRouterRequest struct {
