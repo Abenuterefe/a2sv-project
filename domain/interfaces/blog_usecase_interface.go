@@ -19,4 +19,8 @@ type BlogUseCaseInterface interface {
 	DeleteBlog(ctx context.Context, id string) error
 	// Get popular blogs with popularity scores
 	GetPopularBlogs(ctx context.Context, limit int64) ([]*entities.BlogWithPopularity, error)
+	// Filter blogs based on criteria
+	FilterBlogs(ctx context.Context, filter *entities.BlogFilter) (*entities.FilterResponse, error)
+	// Search blogs based on title and/or author
+	SearchBlogs(ctx context.Context, search *entities.BlogSearch) (*entities.SearchResponse, error)
 }

@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/Abenuterefe/a2sv-project/domain/entities"
 	"github.com/Abenuterefe/a2sv-project/domain/interfaces"
@@ -150,5 +151,135 @@ func (h *BlogHandler) GetPopularBlogs(c *gin.Context) {
 		"message": "Popular blogs retrieved successfully",
 		"data":    blogs,
 		"count":   len(blogs),
+	})
+}
+
+// FilterBlogs handles GET /blogs/filter
+func (h *BlogHandler) FilterBlogs(c *gin.Context) {
+	var filter entities.BlogFilter
+	
+	// Parse query parameters
+	if tags := c.QueryArray("tags"); len(tags) > 0 {
+		filter.Tags = tags
+	}
+	
+	// Parse date_from
+	if dateFromStr := c.Query("date_from"); dateFromStr != "" {
+		if dateFrom, err := time.Parse("2006-01-02", dateFromStr); err == nil {
+			filter.DateFrom = &dateFrom
+		} else {
+			c.JSON(400, gin.H{"error": "Invalid date_from format. Use YYYY-MM-DD"})
+			return
+		}
+	}
+	
+	// Parse date_to
+	if dateToStr := c.Query("date_to"); dateToStr != "" {
+		if dateTo, err := time.Parse("2006-01-02", dateToStr); err == nil {
+			filter.DateTo = &dateTo
+		} else {
+			c.JSON(400, gin.H{"error": "Invalid date_to format. Use YYYY-MM-DD"})
+			return
+		}
+	}
+	
+	filter.PopularitySort = c.Query("popularity_sort")
+	filter.SortOrder = c.Query("sort_order")
+	
+	// Parse limit
+	if limitStr := c.Query("limit"); limitStr != "" {
+		if limit, err := strconv.Atoi(limitStr); err == nil && limit > 0 {
+			filter.Limit = limit
+		} else {
+			c.JSON(400, gin.H{"error": "Invalid limit parameter"})
+			return
+		}
+	}
+	
+	// Parse skip (for pagination)
+	if skipStr := c.Query("skip"); skipStr != "" {
+		if skip, err := strconv.Atoi(skipStr); err == nil && skip >= 0 {
+			filter.Skip = skip
+		} else {
+			c.JSON(400, gin.H{"error": "Invalid skip parameter"})
+			return
+		}
+	}
+	
+	// Parse page (alternative to skip)
+	if pageStr := c.Query("page"); pageStr != "" {
+		if page, err := strconv.Atoi(pageStr); err == nil && page > 0 {
+			// Convert page to skip
+			limit := filter.Limit
+			if limit == 0 {
+				limit = 20 // default
+			}
+			filter.Skip = (page - 1) * limit
+		}
+	}
+	
+	// Call use case to filter blogs
+	response, err := h.UseCase.FilterBlogs(c.Request.Context(), &filter)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+	
+	c.JSON(200, gin.H{
+		"message": "Blogs filtered successfully",
+		"data":    response,
+	})
+}
+
+// SearchBlogs handles GET /blogs/search
+func (h *BlogHandler) SearchBlogs(c *gin.Context) {
+	var search entities.BlogSearch
+	
+	// Parse query parameters
+	search.Title = c.Query("title")
+	search.Author = c.Query("author")
+	
+	// Parse limit
+	if limitStr := c.Query("limit"); limitStr != "" {
+		if limit, err := strconv.Atoi(limitStr); err == nil && limit > 0 {
+			search.Limit = limit
+		} else {
+			c.JSON(400, gin.H{"error": "Invalid limit parameter"})
+			return
+		}
+	}
+	
+	// Parse skip (for pagination)
+	if skipStr := c.Query("skip"); skipStr != "" {
+		if skip, err := strconv.Atoi(skipStr); err == nil && skip >= 0 {
+			search.Skip = skip
+		} else {
+			c.JSON(400, gin.H{"error": "Invalid skip parameter"})
+			return
+		}
+	}
+	
+	// Parse page (alternative to skip)
+	if pageStr := c.Query("page"); pageStr != "" {
+		if page, err := strconv.Atoi(pageStr); err == nil && page > 0 {
+			// Convert page to skip
+			limit := search.Limit
+			if limit == 0 {
+				limit = 20 // default
+			}
+			search.Skip = (page - 1) * limit
+		}
+	}
+	
+	// Call use case to search blogs
+	response, err := h.UseCase.SearchBlogs(c.Request.Context(), &search)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+	
+	c.JSON(200, gin.H{
+		"message": "Blog search completed successfully",
+		"data":    response,
 	})
 }

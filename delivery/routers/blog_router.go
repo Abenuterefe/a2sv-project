@@ -31,6 +31,8 @@ func BlogRoutes(r *gin.Engine, client *mongo.Client) {
 	// Public routes (no authentication required)
 	api.GET("/blogs/:id", blogHandler.GetBlogByID) // Anyone can view a specific blog
 	api.GET("/blogs/popular", blogHandler.GetPopularBlogs) // Anyone can view popular blogs
+	api.GET("/blogs/filter", blogHandler.FilterBlogs) // Anyone can filter blogs
+	api.GET("/blogs/search", blogHandler.SearchBlogs) // Anyone can search blogs
 
 	// Protected routes (authentication required)
 	protected := api.Group("/blogs")
