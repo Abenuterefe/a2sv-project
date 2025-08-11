@@ -25,9 +25,11 @@ func (ctrl *AIController) GenerateBlog(c *gin.Context) {
 
 	result, err := ctrl.aiUseCase.GenerateBlog(req.Prompt)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "AI generation failed"})
-		return
-	}
+	// Log the full error for debugging
+	c.JSON(http.StatusInternalServerError, gin.H{"error": "AI generation failed", "details": err.Error()})
+	return
+}
 
-	c.JSON(http.StatusOK, gin.H{"blog": result})
+
+	c.JSON(http.StatusOK, result) // direct struct return
 }
