@@ -65,7 +65,6 @@ func UserRoutes(r *gin.Engine, mongoClient *mongo.Client) {
 	adminGroup := protected.Group("/admin")
 	adminGroup.Use(middlewares.AdminOnlyMiddleware())
 	{
-		adminGroup.GET("", authCtrl.AdminDashboard)
 		adminGroup.PUT("/promote/:id", authCtrl.PromoteUser)
 		adminGroup.PUT("/demote/:id", authCtrl.DemoteUser)
 	}

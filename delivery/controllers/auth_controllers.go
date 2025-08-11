@@ -62,10 +62,6 @@ func (ac *AuthController) Regiser(c *gin.Context) {
 		return
 	}
 
-	//// mock mail (optional)
-	//go func() {
-	//	println("[MOCK EMAIL] Sent verification mail to", user.Email)
-	//}()
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Registration successful. Please verify your email."})
 
@@ -134,25 +130,7 @@ func (ac *AuthController) Refresh(c *gin.Context) {
 	})
 }
 
-// User profile handler
-func (a *AuthController) Profile(c *gin.Context) {
-	userID, _ := c.Get("userID")
-	role, _ := c.Get("role")
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Access granted to user profile",
-		"userID":  userID,
-		"role":    role,
-	})
-}
-
-// Admin dashboard(profile) handler
-func (a *AuthController) AdminDashboard(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Welcome to the Admin Dashboard",
-	})
-
-}
 
 // Verify email handler
 func (a *AuthController) VerifyEmail(c *gin.Context) {
