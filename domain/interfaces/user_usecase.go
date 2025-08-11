@@ -16,4 +16,6 @@ type UserUsecase interface {
 	DemoteUser(ctx context.Context, userID string) error
 	Logout(ctx context.Context, userID string) error
 	GoogleOAuthLogin(ctx context.Context, code string) (*entities.Token, error)
+	RequestPasswordReset(ctx context.Context, email string) error 
+	ResetPassword(ctx context.Context, token, newPassword string) error
 }

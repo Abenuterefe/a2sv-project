@@ -1,14 +1,12 @@
 package controllers
 
 import (
-	"context"
 	"net/http"
 	"strings"
 
-	"time"
-
 	"github.com/Abenuterefe/a2sv-project/domain/entities"
 	"github.com/Abenuterefe/a2sv-project/domain/interfaces"
+	"github.com/Abenuterefe/a2sv-project/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -54,17 +52,16 @@ func (ac *AuthController) Regiser(c *gin.Context) {
 		Password: req.Password,
 	}
 
-	if err := ac.UserUsecase.Regiser(c.Request.Context(), user); err != nil {
+	ctx, cancel := utils.CreateContext()
+	defer cancel()
+
+	if err := ac.UserUsecase.Regiser(ctx, user); err != nil {
 
 		c.JSON(http.StatusBadRequest, gin.H{"error1 malli maali": err.Error()})
 
 		return
 	}
 
-	// mock mail (optional)
-	go func() {
-		println("[MOCK EMAIL] Sent verification mail to", user.Email)
-	}()
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Registration successful. Please verify your email."})
 
@@ -80,7 +77,7 @@ func (ac *AuthController) Login(c *gin.Context) {
 	}
 
 	// create context for login handler
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := utils.CreateContext()
 	defer cancel()
 
 	// Generate tokens
@@ -116,7 +113,7 @@ func (ac *AuthController) Refresh(c *gin.Context) {
 
 	refreshToken := fields[1]
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := utils.CreateContext()
 	defer cancel()
 
 	token, err := ac.UserUsecase.RefreshToken(ctx, refreshToken)
@@ -133,25 +130,7 @@ func (ac *AuthController) Refresh(c *gin.Context) {
 	})
 }
 
-// User profile handler
-func (a *AuthController) Profile(c *gin.Context) {
-	userID, _ := c.Get("userID")
-	role, _ := c.Get("role")
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Access granted to user profile",
-		"userID":  userID,
-		"role":    role,
-	})
-}
-
-// Admin dashboard(profile) handler
-func (a *AuthController) AdminDashboard(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Welcome to the Admin Dashboard",
-	})
-
-}
 
 // Verify email handler
 func (a *AuthController) VerifyEmail(c *gin.Context) {
@@ -161,7 +140,10 @@ func (a *AuthController) VerifyEmail(c *gin.Context) {
 		return
 	}
 
-	err := a.UserUsecase.VerifyEmail(c.Request.Context(), token)
+	ctx, cancel := utils.CreateContext()
+	defer cancel()
+
+	err := a.UserUsecase.VerifyEmail(ctx, token)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -181,7 +163,10 @@ func (a *AuthController) ResendVerification(c *gin.Context) {
 		return
 	}
 
-	err := a.UserUsecase.ResendVerificationEmail(c.Request.Context(), req.Email)
+	ctx, cancel := utils.CreateContext()
+	defer cancel()
+
+	err := a.UserUsecase.ResendVerificationEmail(ctx, req.Email)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -194,7 +179,11 @@ func (a *AuthController) ResendVerification(c *gin.Context) {
 // Promote user handler
 func (a *AuthController) PromoteUser(c *gin.Context) {
 	UserID := c.Param("id")
-	err := a.UserUsecase.PromoteUser(c.Request.Context(), UserID)
+
+	ctx, cancel := utils.CreateContext()
+	defer cancel()
+
+	err := a.UserUsecase.PromoteUser(ctx, UserID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -207,7 +196,10 @@ func (a *AuthController) PromoteUser(c *gin.Context) {
 func (a *AuthController) DemoteUser(c *gin.Context) {
 	userID := c.Param("id")
 
-	err := a.UserUsecase.DemoteUser(c.Request.Context(), userID)
+	ctx, cancel := utils.CreateContext()
+	defer cancel()
+
+	err := a.UserUsecase.DemoteUser(ctx, userID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -224,7 +216,10 @@ func (a *AuthController) Logout(c *gin.Context) {
 		return
 	}
 
-	if err := a.UserUsecase.Logout(c.Request.Context(), userID.(string)); err != nil {
+	ctx, cancel := utils.CreateContext()
+	defer cancel()
+
+	if err := a.UserUsecase.Logout(ctx, userID.(string)); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to logout"})
 		return
 	}
@@ -234,7 +229,7 @@ func (a *AuthController) Logout(c *gin.Context) {
 
 // Google authentication handler
 func (a *AuthController) GoogleLogin(c *gin.Context) {
-	state := "my_state" // Ideally random & stored in cookie/session
+	state := "my_state1" // Ideally random & stored in cookie/session
 	authURL := a.oauthService.GetAuthURL(state)
 	c.Redirect(http.StatusTemporaryRedirect, authURL)
 }
@@ -247,8 +242,11 @@ func (a *AuthController) GoogleCallback(c *gin.Context) {
 		return
 	}
 
+	ctx, cancel := utils.CreateContext()
+	defer cancel()
+
 	//generate authentication token for later login like we did for Login handler
-	token, err := a.UserUsecase.GoogleOAuthLogin(c.Request.Context(), code)
+	token, err := a.UserUsecase.GoogleOAuthLogin(ctx, code)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -260,4 +258,47 @@ func (a *AuthController) GoogleCallback(c *gin.Context) {
 		"expires_at":    token.ExpiresAt,
 	})
 
+}
+
+// Password reset REQUEST handler
+func (a *AuthController) ForgotPassword(c *gin.Context) {
+	var req struct {
+		Email string `json:"email" binding:"required,email"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx, cancel := utils.CreateContext()
+	defer cancel()
+
+	if err := a.UserUsecase.RequestPasswordReset(ctx, req.Email); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send reset email"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Password reset email sent"})
+}
+
+// Password reset handler
+func (a *AuthController) ResetPassword(c *gin.Context) {
+	var req struct {
+		Token       string `json:"token" binding:"required"`
+		NewPassword string `json:"new_password" binding:"required,min=6"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx, cancel := utils.CreateContext()
+	defer cancel()
+
+	if err := a.UserUsecase.ResetPassword(ctx, req.Token, req.NewPassword); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Password reset successful"})
 }
