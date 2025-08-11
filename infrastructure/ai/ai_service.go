@@ -6,13 +6,17 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"os"
+	"regexp"
+	"strings"
+
+	"github.com/Abenuterefe/a2sv-project/domain/entities"
 )
 
-// Constants for OpenRouter
-const (
-	openRouterURL = "https://openrouter.ai/api/v1/chat/completions"
-	apiKey        = "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"
-	model         = "google/gemini-2.0-flash-exp:free"
+var (
+	openRouterURL string
+	apiKey        string
+	model         string
 )
 
 type OpenAIService struct{}
@@ -21,19 +25,31 @@ func NewOpenAIService() *OpenAIService {
 	return &OpenAIService{}
 }
 
+// Setup must be called AFTER godotenv.Load() in main.go
+func Setup() {
+	apiKey = os.Getenv("OPENROUTER_API_KEY")
+	openRouterURL = os.Getenv("OPENROUTERURL")
+	model = os.Getenv("MODEL")
+
+	if apiKey == "" {
+		panic("Missing environment variable: OPENROUTER_API_KEY")
+	}
+	if openRouterURL == "" {
+		panic("Missing environment variable: OPENROUTERURL")
+	}
+	if model == "" {
+		panic("Missing environment variable: MODEL")
+	}
+}
+
 type openRouterRequest struct {
 	Model    string    `json:"model"`
 	Messages []message `json:"messages"`
 }
 
 type message struct {
-	Role    string    `json:"role"`
-	Content []content `json:"content"`
-}
-
-type content struct {
-	Type string `json:"type"`
-	Text string `json:"text,omitempty"`
+	Role    string `json:"role"`
+	Content string `json:"content"`
 }
 
 type openRouterResponse struct {
@@ -44,32 +60,30 @@ type openRouterResponse struct {
 	} `json:"choices"`
 }
 
-func (s *OpenAIService) GenerateBlog(prompt string) (string, error) {
+func (s *OpenAIService) GenerateBlog(prompt string) (*entities.BlogResponse, error) {
 	if prompt == "" {
-		return "", errors.New("prompt cannot be empty")
+		return nil, errors.New("prompt cannot be empty")
 	}
 
-	// Build the request body
+	if !strings.Contains(strings.ToLower(prompt), "blog") {
+		prompt = "Generate a blog regarding: " + prompt
+	}
+
 	reqBody := openRouterRequest{
 		Model: model,
 		Messages: []message{
-			{
-				Role: "user",
-				Content: []content{
-					{Type: "text", Text: prompt},
-				},
-			},
+			{Role: "user", Content: prompt},
 		},
 	}
 
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	req, err := http.NewRequest("POST", openRouterURL, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	req.Header.Set("Authorization", "Bearer "+apiKey)
@@ -78,27 +92,56 @@ func (s *OpenAIService) GenerateBlog(prompt string) (string, error) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", errors.New("OpenRouter API error: " + string(body))
+		return nil, errors.New("OpenRouter API error: " + string(body))
 	}
 
 	var aiResp openRouterResponse
 	if err := json.Unmarshal(body, &aiResp); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if len(aiResp.Choices) == 0 {
-		return "", errors.New("AI returned empty response")
+		return nil, errors.New("AI returned empty response")
 	}
 
-	return aiResp.Choices[0].Message.Content, nil
+	content := strings.TrimSpace(aiResp.Choices[0].Message.Content)
+	paragraphs := splitIntoParagraphs(content)
+
+	return &entities.BlogResponse{
+		Title:          extractTitle(content),
+		Paragraphs:     paragraphs,
+		ParagraphCount: len(paragraphs),
+	}, nil
+}
+
+func splitIntoParagraphs(text string) []string {
+	text = strings.ReplaceAll(text, "\r\n", "\n")
+	parts := strings.Split(text, "\n\n")
+
+	var cleaned []string
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			cleaned = append(cleaned, p)
+		}
+	}
+	return cleaned
+}
+
+func extractTitle(text string) string {
+	re := regexp.MustCompile(`^(.*?)(\.|\n|$)`)
+	match := re.FindStringSubmatch(text)
+	if len(match) > 1 {
+		return strings.TrimSpace(match[1])
+	}
+	return ""
 }

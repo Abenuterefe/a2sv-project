@@ -6,6 +6,7 @@ import (
 
 	"github.com/Abenuterefe/a2sv-project/delivery/routers"
 	"github.com/Abenuterefe/a2sv-project/infrastructure/database"
+	"github.com/Abenuterefe/a2sv-project/infrastructure/ai"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
@@ -15,6 +16,7 @@ func main() {
 	if err != nil {
 		log.Println("⚠️ .env file is not found")
 	}
+	ai.Setup()
 
 	// CONNECT TO MONGODB DATABASE
 	mongoClient, err := database.ConnectMongoDB()
